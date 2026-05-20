@@ -1,0 +1,6 @@
+$kind: collection
+name: Glow Client Care API - Client Tests
+variables:
+  baseUrl: ""
+  clientId: ""
+  clientEmail: ""

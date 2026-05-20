@@ -1,0 +1,26 @@
+$kind: http-request
+name: Delete Client By ID
+url: "{{baseUrl}}/clients/{{clientId}}"
+method: DELETE
+scripts:
+  - type: afterResponse
+    code: |-
+      pm.test("Status code is 200", () => {
+        pm.response.to.have.status(200);
+      });
+
+      pm.test("Response says client was deleted", () => {
+        let jsonData = pm.response.json();
+
+        pm.expect(jsonData.success).to.eql(true);
+        pm.expect(jsonData.message).to.eql("Client deleted successfully");
+      });
+
+      pm.test("Deleted client id matches saved client id", () => {
+        let jsonData = pm.response.json();
+        let clientId = pm.collectionVariables.get("clientId");
+
+        pm.expect(jsonData.data._id).to.eql(clientId);
+      });
+    language: text/javascript
+order: 4270906711854288

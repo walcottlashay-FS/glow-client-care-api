@@ -1,0 +1,29 @@
+$kind: http-request
+name: Get Client By ID
+url: "{{baseUrl}}/clients/{{clientId}}"
+method: GET
+scripts:
+  - type: afterResponse
+    code: |-
+      pm.test("Status code is 200", () => {
+        pm.response.to.have.status(200);
+      });
+
+      pm.test("Response returns the correct client id", () => {
+        let jsonData = pm.response.json();
+        let clientId = pm.collectionVariables.get("clientId");
+
+        pm.expect(jsonData.success).to.eql(true);
+        pm.expect(jsonData.data._id).to.eql(clientId);
+      });
+
+      pm.test("Client payload includes required fields", () => {
+        let jsonData = pm.response.json();
+
+        pm.expect(jsonData.data).to.have.property("firstName");
+        pm.expect(jsonData.data).to.have.property("email");
+        pm.expect(jsonData.data).to.have.property("age");
+        pm.expect(jsonData.data).to.have.property("skinConcerns");
+      });
+    language: text/javascript
+order: 3483844846676348

@@ -1,0 +1,40 @@
+$kind: http-request
+name: Create Client
+url: "{{baseUrl}}/clients"
+method: POST
+body:
+  type: json
+  content: |-
+    {
+      "firstName": "Maya",
+      "email": "maya{{$timestamp}}@example.com",
+      "age": 30,
+      "isActive": true,
+      "skinConcerns": ["acne", "hyperpigmentation"]
+    }
+scripts:
+  - type: afterResponse
+    code: |-
+      pm.test("Status code is 201", () => {
+        pm.response.to.have.status(201);
+      });
+
+      pm.test("Response says client was created", () => {
+        let jsonData = pm.response.json();
+
+        pm.expect(jsonData.success).to.eql(true);
+        pm.expect(jsonData.message).to.eql("Client created successfully");
+      });
+
+      pm.test("Created client has an id and correct payload", () => {
+        let jsonData = pm.response.json();
+
+        pm.expect(jsonData.data).to.have.property("_id");
+        pm.expect(jsonData.data.firstName).to.eql("Maya");
+        pm.expect(jsonData.data.skinConcerns).to.include("acne");
+
+        pm.collectionVariables.set("clientId", jsonData.data._id);
+        pm.collectionVariables.set("clientEmail", jsonData.data.email);
+      });
+    language: text/javascript
+order: 1779242836612

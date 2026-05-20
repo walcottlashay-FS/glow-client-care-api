@@ -1,0 +1,37 @@
+$kind: http-request
+name: Update Client By ID
+url: "{{baseUrl}}/clients/{{clientId}}"
+method: PUT
+body:
+  type: json
+  content: |-
+    {
+      "firstName": "Maya",
+      "email": "{{clientEmail}}",
+      "age": 31,
+      "isActive": true,
+      "skinConcerns": ["acne", "sensitivity"]
+    }
+scripts:
+  - type: afterResponse
+    code: |-
+      pm.test("Status code is 200", () => {
+        pm.response.to.have.status(200);
+      });
+
+      pm.test("Response says client was updated", () => {
+        let jsonData = pm.response.json();
+
+        pm.expect(jsonData.success).to.eql(true);
+        pm.expect(jsonData.message).to.eql("Client updated successfully");
+      });
+
+      pm.test("Updated client returns new age and skin concern", () => {
+        let jsonData = pm.response.json();
+
+        pm.expect(jsonData.data._id).to.eql(pm.collectionVariables.get("clientId"));
+        pm.expect(jsonData.data.age).to.eql(31);
+        pm.expect(jsonData.data.skinConcerns).to.include("sensitivity");
+      });
+    language: text/javascript
+order: 4046629874384034
