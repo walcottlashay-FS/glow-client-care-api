@@ -1,9 +1,13 @@
 const TreatmentPlan = require("../models/treatmentPlanModel");
+const Client = require("../models/clientModel");
+const messages = require("../messages/messages");
 
-// get all treatment plans
+// get all treatment plans and show client info
 const getAllTreatmentPlans = async (req, res) => {
   try {
-    const treatmentPlans = await TreatmentPlan.find().populate("client", "firstName email");
+    const treatmentPlans = await TreatmentPlan.find()
+      .select("-__v")
+      .populate("client", "-__v");
 
     res
       .status(200)
@@ -27,14 +31,16 @@ const getTreatmentPlanById = async (req, res) => {
   try {
     const { id } = req.params;
 
-    const treatmentPlan = await TreatmentPlan.findById(id).populate("client", "firstName email");
+    const treatmentPlan = await TreatmentPlan.findById(id)
+      .select("-__v")
+      .populate("client", "-__v");
 
     if (!treatmentPlan) {
       return res
         .status(404)
         .json({
           success: false,
-          message: "Treatment plan not found"
+          message: messages.treatmentPlanNotFound
         });
     }
 
@@ -54,17 +60,34 @@ const getTreatmentPlanById = async (req, res) => {
   }
 };
 
-// create a new treatment plan
+// create a treatment plan using a real client id
 const createTreatmentPlan = async (req, res) => {
   try {
+    const { client } = req.body;
+
+    const existingClient = await Client.findById(client);
+
+    if (!existingClient) {
+      return res
+        .status(404)
+        .json({
+          success: false,
+          message: messages.invalidClientId
+        });
+    }
+
     const treatmentPlan = await TreatmentPlan.create(req.body);
+
+    const populatedTreatmentPlan = await TreatmentPlan.findById(treatmentPlan._id)
+      .select("-__v")
+      .populate("client", "-__v");
 
     res
       .status(201)
       .json({
         success: true,
-        message: "Treatment plan created successfully",
-        data: treatmentPlan
+        message: messages.treatmentPlanCreated,
+        data: populatedTreatmentPlan
       });
   } catch (error) {
     res
@@ -81,25 +104,42 @@ const updateTreatmentPlanById = async (req, res) => {
   try {
     const { id } = req.params;
 
-    const treatmentPlan = await TreatmentPlan.findByIdAndUpdate(id, req.body, {
-      new: true,
-      runValidators: true
-    });
+    const existingTreatmentPlan = await TreatmentPlan.findById(id);
 
-    if (!treatmentPlan) {
+    if (!existingTreatmentPlan) {
       return res
         .status(404)
         .json({
           success: false,
-          message: "Treatment plan not found"
+          message: messages.treatmentPlanNotFound
         });
     }
+
+    if (req.body.client) {
+      const existingClient = await Client.findById(req.body.client);
+
+      if (!existingClient) {
+        return res
+          .status(404)
+          .json({
+            success: false,
+            message: messages.invalidClientId
+          });
+      }
+    }
+
+    const treatmentPlan = await TreatmentPlan.findByIdAndUpdate(id, req.body, {
+      new: true,
+      runValidators: true
+    })
+      .select("-__v")
+      .populate("client", "-__v");
 
     res
       .status(200)
       .json({
         success: true,
-        message: "Treatment plan updated successfully",
+        message: messages.treatmentPlanUpdated,
         data: treatmentPlan
       });
   } catch (error) {
@@ -117,22 +157,26 @@ const deleteTreatmentPlanById = async (req, res) => {
   try {
     const { id } = req.params;
 
-    const treatmentPlan = await TreatmentPlan.findByIdAndDelete(id);
+    const existingTreatmentPlan = await TreatmentPlan.findById(id);
 
-    if (!treatmentPlan) {
+    if (!existingTreatmentPlan) {
       return res
         .status(404)
         .json({
           success: false,
-          message: "Treatment plan not found"
+          message: messages.treatmentPlanNotFound
         });
     }
+
+    const treatmentPlan = await TreatmentPlan.findByIdAndDelete(id)
+      .select("-__v")
+      .populate("client", "-__v");
 
     res
       .status(200)
       .json({
         success: true,
-        message: "Treatment plan deleted successfully",
+        message: messages.treatmentPlanDeleted,
         data: treatmentPlan
       });
   } catch (error) {
