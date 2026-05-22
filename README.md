@@ -11,7 +11,7 @@ The two collections are:
 - Clients
 - Treatment Plans
 
-A Treatment Plan has a Client relationship using a Mongoose ObjectId reference.
+A Treatment Plan belongs to a Client by using a Mongoose ObjectId reference.
 
 ## Technologies Used
 
@@ -41,6 +41,14 @@ A Treatment Plan has a Client relationship using a Mongoose ObjectId reference.
 - price: Number
 - treatmentDate: Date
 
+## Relationship
+
+A Treatment Plan belongs to a Client.
+
+This relationship is created using a Mongoose ObjectId reference in the Treatment Plan schema.
+
+When creating a Treatment Plan, the Client ID from MongoDB is used to connect the Treatment Plan to the Client collection.
+
 ## API Routes
 
 ### Client Routes
@@ -59,19 +67,47 @@ POST /api/v1/treatment-plans
 PUT /api/v1/treatment-plans/:id  
 DELETE /api/v1/treatment-plans/:id  
 
-## Relationship
+## Second Collection Features
 
-A Treatment Plan has a Client. This relationship is created using a Mongoose ObjectId reference in the Treatment Plan schema.
+For the second collection, Treatment Plans, I added:
+
+- select("-__v") to remove the version field from response payloads
+- populate("client", "-__v") to display the connected Client information
+- Not-found checks for ID functions
+- A messages module for hardcoded response messages
+- Client ID validation before creating a Treatment Plan
+
+## Messages Module
+
+Hardcoded response messages are stored in:
+
+app/messages/messages.js
+
+This keeps messages like "Client not found" and "Treatment plan not found" organized in one place.
 
 ## Error Handling
 
 The API uses try/catch blocks, validation, and status codes for successful requests, bad requests, and not found errors.
 
+For ID functions, the API checks if the object exists first. If it does not exist, it returns a not-found response.
+
 ## How to Run
 
-```bash
-npm install
-npm run dev
+Run these commands:
 
-Video link: 
-https://youtu.be/B_kkCnbXZsU 
+npm install  
+npm run dev  
+
+Server runs on:
+
+http://localhost:3000
+
+## Video Links
+
+### Module Two API Walkthrough
+
+https://youtu.be/B_kkCnbXZsU
+
+### Second Collection Assignment Walkthrough
+
+https://youtu.be/b5OqWOq9tQs
