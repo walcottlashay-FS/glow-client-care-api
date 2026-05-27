@@ -1,9 +1,8 @@
 require("dotenv").config();
 
-const app = require("./app");
+const app = require("./app/index");
 const connectDB = require("./app/db/config");
 
-// *connect to MongoDB before the server starts
 connectDB();
 
 const PORT = process.env.PORT || 3000;

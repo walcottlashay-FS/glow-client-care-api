@@ -111,3 +111,7 @@ https://youtu.be/B_kkCnbXZsU
 ### Second Collection Assignment Walkthrough
 
 https://youtu.be/b5OqWOq9tQs
+
+### Third collection walk through
+
+https://youtu.be/cPijSOlHzmg

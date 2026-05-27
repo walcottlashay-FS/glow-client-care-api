@@ -30,7 +30,14 @@ const clientSchema = new mongoose.Schema(
       type: [String],
       required: [true, "At least one skin concern is required"],
       enum: ["acne", "hyperpigmentation", "dryness", "aging", "sensitivity"]
-    }
+    },
+    // connects client back to their treatment plans
+    treatmentPlans: [
+      {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: "TreatmentPlan"
+      }
+    ]
   },
   {
     timestamps: true

@@ -1,191 +1,257 @@
 const TreatmentPlan = require("../models/treatmentPlanModel");
 const Client = require("../models/clientModel");
-const messages = require("../messages/messages");
+const messages = require("../Messages/messages");
 
-// get all treatment plans and show client info
+// hide email when client info is populated inside treatment plans
+const clientPopulateOptions = {
+  path: "client",
+  select: "-email -__v"
+};
+
+// get all treatment plans with query operators, select, sort, and pagination
 const getAllTreatmentPlans = async (req, res) => {
   try {
-    const treatmentPlans = await TreatmentPlan.find()
-      .select("-__v")
-      .populate("client", "-__v");
+    const {
+      serviceName,
+      minSessions,
+      maxSessions,
+      minPrice,
+      maxPrice,
+      startDate,
+      endDate,
+      exclude,
+      sort,
+      page = 1,
+      limit = 5
+    } = req.query;
 
-    res
-      .status(200)
-      .json({
-        success: true,
-        count: treatmentPlans.length,
-        data: treatmentPlans
-      });
-  } catch (error) {
-    res
-      .status(500)
-      .json({
-        success: false,
-        message: error.message
-      });
-  }
-};
+    const filter = {};
 
-// get one treatment plan by id
-const getTreatmentPlanById = async (req, res) => {
-  try {
-    const { id } = req.params;
-
-    const treatmentPlan = await TreatmentPlan.findById(id)
-      .select("-__v")
-      .populate("client", "-__v");
-
-    if (!treatmentPlan) {
-      return res
-        .status(404)
-        .json({
-          success: false,
-          message: messages.treatmentPlanNotFound
-        });
+    // Mongo query operator: $regex
+    if (serviceName) {
+      filter.serviceName = {
+        $regex: serviceName,
+        $options: "i"
+      };
     }
 
-    res
-      .status(200)
-      .json({
-        success: true,
-        data: treatmentPlan
-      });
+    // Mongo query operators: $gte and $lte
+    if (minSessions || maxSessions) {
+      filter.sessions = {};
+
+      if (minSessions) {
+        filter.sessions.$gte = Number(minSessions);
+      }
+
+      if (maxSessions) {
+        filter.sessions.$lte = Number(maxSessions);
+      }
+    }
+
+    // Mongo query operators: $gte and $lte
+    if (minPrice || maxPrice) {
+      filter.price = {};
+
+      if (minPrice) {
+        filter.price.$gte = Number(minPrice);
+      }
+
+      if (maxPrice) {
+        filter.price.$lte = Number(maxPrice);
+      }
+    }
+
+    // Mongo query operators: $gte and $lte for dates
+    if (startDate || endDate) {
+      filter.treatmentDate = {};
+
+      if (startDate) {
+        filter.treatmentDate.$gte = new Date(startDate);
+      }
+
+      if (endDate) {
+        filter.treatmentDate.$lte = new Date(endDate);
+      }
+    }
+
+    // select can exclude fields from the response
+    const selectFields = exclude
+      ? exclude.split(",").map((field) => `-${field}`).join(" ")
+      : "-__v";
+
+    // sort results
+    const sortFields = sort ? sort.split(",").join(" ") : "treatmentDate";
+
+    // pagination
+    const pageNumber = Number(page);
+    const limitNumber = Number(limit);
+    const skip = (pageNumber - 1) * limitNumber;
+
+    const treatmentPlans = await TreatmentPlan.find(filter)
+      .select(selectFields)
+      .populate(clientPopulateOptions)
+      .sort(sortFields)
+      .skip(skip)
+      .limit(limitNumber);
+
+    const totalTreatmentPlans = await TreatmentPlan.countDocuments(filter);
+
+    res.status(200).json({
+      success: true,
+      count: treatmentPlans.length,
+      total: totalTreatmentPlans,
+      page: pageNumber,
+      pages: Math.ceil(totalTreatmentPlans / limitNumber),
+      data: treatmentPlans
+    });
   } catch (error) {
-    res
-      .status(500)
-      .json({
-        success: false,
-        message: error.message
-      });
+    res.status(500).json({
+      success: false,
+      message: error.message
+    });
   }
 };
 
-// create a treatment plan using a real client id
+// get one treatment plan by id and show client info
+const getTreatmentPlanById = async (req, res) => {
+  try {
+    const treatmentPlan = await TreatmentPlan.findById(req.params.id)
+      .select("-__v")
+      .populate(clientPopulateOptions);
+
+    if (!treatmentPlan) {
+      return res.status(404).json({
+        success: false,
+        message: messages.treatmentPlanNotFound
+      });
+    }
+
+    res.status(200).json({
+      success: true,
+      data: treatmentPlan
+    });
+  } catch (error) {
+    res.status(400).json({
+      success: false,
+      message: error.message
+    });
+  }
+};
+
+// create a treatment plan and connect it to a client
 const createTreatmentPlan = async (req, res) => {
   try {
-    const { client } = req.body;
-
-    const existingClient = await Client.findById(client);
+    const existingClient = await Client.findById(req.body.client);
 
     if (!existingClient) {
-      return res
-        .status(404)
-        .json({
-          success: false,
-          message: messages.invalidClientId
-        });
+      return res.status(404).json({
+        success: false,
+        message: messages.invalidClientId
+      });
     }
 
     const treatmentPlan = await TreatmentPlan.create(req.body);
 
+    // add this treatment plan to the client's treatmentPlans array
+    await Client.findByIdAndUpdate(req.body.client, {
+      $addToSet: { treatmentPlans: treatmentPlan._id }
+    });
+
     const populatedTreatmentPlan = await TreatmentPlan.findById(treatmentPlan._id)
       .select("-__v")
-      .populate("client", "-__v");
+      .populate(clientPopulateOptions);
 
-    res
-      .status(201)
-      .json({
-        success: true,
-        message: messages.treatmentPlanCreated,
-        data: populatedTreatmentPlan
-      });
+    res.status(201).json({
+      success: true,
+      message: messages.treatmentPlanCreated,
+      data: populatedTreatmentPlan
+    });
   } catch (error) {
-    res
-      .status(400)
-      .json({
-        success: false,
-        message: error.message
-      });
+    res.status(400).json({
+      success: false,
+      message: error.message
+    });
   }
 };
 
 // update treatment plan by id
 const updateTreatmentPlanById = async (req, res) => {
   try {
-    const { id } = req.params;
-
-    const existingTreatmentPlan = await TreatmentPlan.findById(id);
+    const existingTreatmentPlan = await TreatmentPlan.findById(req.params.id);
 
     if (!existingTreatmentPlan) {
-      return res
-        .status(404)
-        .json({
-          success: false,
-          message: messages.treatmentPlanNotFound
-        });
+      return res.status(404).json({
+        success: false,
+        message: messages.treatmentPlanNotFound
+      });
     }
 
     if (req.body.client) {
       const existingClient = await Client.findById(req.body.client);
 
       if (!existingClient) {
-        return res
-          .status(404)
-          .json({
-            success: false,
-            message: messages.invalidClientId
-          });
+        return res.status(404).json({
+          success: false,
+          message: messages.invalidClientId
+        });
       }
     }
 
-    const treatmentPlan = await TreatmentPlan.findByIdAndUpdate(id, req.body, {
+    const treatmentPlan = await TreatmentPlan.findByIdAndUpdate(req.params.id, req.body, {
       new: true,
       runValidators: true
     })
       .select("-__v")
-      .populate("client", "-__v");
+      .populate(clientPopulateOptions);
 
-    res
-      .status(200)
-      .json({
-        success: true,
-        message: messages.treatmentPlanUpdated,
-        data: treatmentPlan
+    if (req.body.client) {
+      await Client.findByIdAndUpdate(req.body.client, {
+        $addToSet: { treatmentPlans: treatmentPlan._id }
       });
+    }
+
+    res.status(200).json({
+      success: true,
+      message: messages.treatmentPlanUpdated,
+      data: treatmentPlan
+    });
   } catch (error) {
-    res
-      .status(400)
-      .json({
-        success: false,
-        message: error.message
-      });
+    res.status(400).json({
+      success: false,
+      message: error.message
+    });
   }
 };
 
 // delete treatment plan by id
 const deleteTreatmentPlanById = async (req, res) => {
   try {
-    const { id } = req.params;
+    const treatmentPlan = await TreatmentPlan.findByIdAndDelete(req.params.id)
+      .select("-__v")
+      .populate(clientPopulateOptions);
 
-    const existingTreatmentPlan = await TreatmentPlan.findById(id);
-
-    if (!existingTreatmentPlan) {
-      return res
-        .status(404)
-        .json({
-          success: false,
-          message: messages.treatmentPlanNotFound
-        });
+    if (!treatmentPlan) {
+      return res.status(404).json({
+        success: false,
+        message: messages.treatmentPlanNotFound
+      });
     }
 
-    const treatmentPlan = await TreatmentPlan.findByIdAndDelete(id)
-      .select("-__v")
-      .populate("client", "-__v");
+    // remove this treatment plan from the client's treatmentPlans array
+    await Client.findByIdAndUpdate(treatmentPlan.client._id, {
+      $pull: { treatmentPlans: treatmentPlan._id }
+    });
 
-    res
-      .status(200)
-      .json({
-        success: true,
-        message: messages.treatmentPlanDeleted,
-        data: treatmentPlan
-      });
+    res.status(200).json({
+      success: true,
+      message: messages.treatmentPlanDeleted,
+      data: treatmentPlan
+    });
   } catch (error) {
-    res
-      .status(500)
-      .json({
-        success: false,
-        message: error.message
-      });
+    res.status(500).json({
+      success: false,
+      message: error.message
+    });
   }
 };
 
